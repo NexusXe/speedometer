@@ -1,9 +1,33 @@
 #![feature(inherent_associated_types)]
+#![allow(incomplete_features)]
 #![feature(const_trait_impl)]
 
 enum CharacterPixels {
     Standard([[bool; 3]; 5]),
     Wide([[bool; 5]; 5]),
+}
+
+impl CharacterPixels {
+    
+
+    pub const fn into_display_pixels(self) -> DisplayPixels {
+
+        const fn bools_to_displaypixels<const T: usize>(data: [[bool; T]; 5]) -> DisplayPixels {
+            todo!();
+        }
+        
+        let mut output: DisplayPixels = match self {
+            Self::Standard(data) => {
+                bools_to_displaypixels(data)
+            },
+
+            Self::Wide(data) => {
+                bools_to_displaypixels(data)
+            }
+        }
+
+        output
+    }
 }
 
 const fn char_to_pixels(input: char) -> CharacterPixels {
@@ -57,7 +81,7 @@ struct Position {
 }
 
 trait Displayable {
-    fn into_mask(self) -> DisplayPixels;
+    fn into_displaypixels(self) -> DisplayPixels;
 }
 
 struct StaticText {
@@ -65,12 +89,30 @@ struct StaticText {
     position: &'static Position
 }
 
+impl StaticText {
+    pub const fn len(&self) -> usize {
+        self.text.len()
+    }
+}
+
 impl const Displayable for StaticText {
-    fn into_mask(self) -> DisplayPixels {
+    fn into_displaypixels(self) -> DisplayPixels {
         let mut output: DisplayPixels = [0u128; 64];
+        let starting_column: u8 = self.position.x;
         let starting_row: u8 = self.position.y;
+        let mut current_column: u8 = starting_column;
+        let mut i: usize = 0;
+        while i < self.len() { // character by character
+            let mut x: usize = 0;
+            let current_character_pixels = char_to_pixels(self.text.chars().nth(i).unwrap());
+            while x < output.len() { // row by row
 
-
+                x += 1;
+            }
+            
+            i += 1;
+        }
+        
         output
     }
 }
