@@ -1,9 +1,25 @@
 #![feature(inherent_associated_types)]
 #![allow(incomplete_features)]
 #![feature(const_trait_impl)]
+#![feature(ascii_char)]
+#![feature(const_mut_refs)]
 
 type StandardCharacter = i16; // 5 x 3, with sign bit as visibility
 type WideCharacter = i32; // 5 x 5, with sign bit as visibility and 6 trailing unused 0s
+
+type DisplayLine = u128;
+type DisplayPixels = [DisplayLine; 64];
+
+trait Displayable {
+    fn into_displaypixels(self) -> DisplayPixels;
+}
+
+
+
+const CHAR_LENGTH: usize = 5;
+const CHAR_WIDTH: usize = 3;
+const WIDECHAR_LENGTH: usize = 5;
+const WIDECHAR_WIDTH: usize = 5;
 
 const A_PIXELS: StandardCharacter = 0b1111101111101101u16 as i16;
 const B_PIXELS: StandardCharacter = 0b1110101110101110u16 as i16;
@@ -43,6 +59,7 @@ const EIGHT_PIXELS: StandardCharacter = 0b1111101111101111u16 as i16;
 const NINE_PIXELS: StandardCharacter = 0b1111101111001001u16 as i16;
 const UNKNOWN_PIXELS: StandardCharacter = 0b1101010101010101u16 as i16;
 
+#[derive(Debug)]
 pub enum DisplayCharacter {
     Standard(StandardCharacter),
     Wide(WideCharacter),
@@ -92,302 +109,43 @@ impl DisplayCharacter {
     }
 }
 
-enum CharacterPixels {
-    Standard([[bool; 3]; 5]),
-    Wide([[bool; 5]; 5]),
-}
+impl const Displayable for DisplayCharacter {
+    fn into_displaypixels(self) -> DisplayPixels {
+        let mut output: DisplayPixels = [0u128; 64];
+        let mut i: usize = 0;
 
-impl CharacterPixels {
-    pub const fn into_display_pixels(self) -> DisplayPixels {
-        const fn bools_to_displaypixels<const T: usize>(data: [[bool; T]; 5]) -> DisplayPixels {
-            let mut output: DisplayPixels = [0u128; 64];
+        match self {
+            Self::Standard(data) => {
+                const CHAR_PIXEL_MASK: i16 = 0x7000; // 0b01110000
+                while i < CHAR_LENGTH {
+                    output[i] |= (data & (CHAR_PIXEL_MASK >> (i * 3)) as i16) as u128;
+                    i += 1;
+                }
+            },
 
-            output
-        }
-
-        let output: DisplayPixels = match self {
-            Self::Standard(data) => bools_to_displaypixels(data),
-
-            Self::Wide(data) => bools_to_displaypixels(data),
+            Self::Wide(data) => {
+                const CHAR_PIXEL_MASK: i32 = 0x70000000; // 0b01110000
+                while i < WIDECHAR_LENGTH {
+                    output[i] |= (data & (CHAR_PIXEL_MASK >> (i * 3)) as i32) as u128;
+                    i += 1;
+                }
+            },
         };
         output
     }
 }
 
-const fn char_to_pixels(input: char) -> CharacterPixels {
-    match input.to_ascii_uppercase() {
-        'A' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'B' => CharacterPixels::Standard([
-            [true, true, false],
-            [true, false, true],
-            [true, true, false],
-            [true, false, true],
-            [true, true, false],
-        ]),
-        'C' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, true, false],
-            [true, true, false],
-            [true, true, false],
-            [true, true, true],
-        ]),
-        'D' => CharacterPixels::Standard([
-            [true, true, false],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, false],
-        ]),
-        'E' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, false],
-            [true, true, true],
-            [true, false, false],
-            [true, true, true],
-        ]),
-        'F' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, false],
-            [true, true, true],
-            [true, false, false],
-            [true, false, false],
-        ]),
-        'G' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, false],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        'H' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'I' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-            [true, true, true],
-        ]),
-        'J' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-            [true, true, false],
-        ]),
-        'K' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, true, false],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'L' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        'M' => CharacterPixels::Wide([
-            [true, true, false, true, true],
-            [true, false, true, false, true],
-            [true, false, true, false, true],
-            [true, false, false, false, true],
-            [true, false, false, false, true],
-        ]),
-        'N' => CharacterPixels::Standard([
-            [true, true, false],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'O' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        'P' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-            [true, false, false],
-            [true, false, false],
-        ]),
-        'Q' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-            [false, false, true],
-        ]),
-        'R' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, true, false],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'S' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, false],
-            [true, true, true],
-            [false, false, true],
-            [true, true, true],
-        ]),
-        'T' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-        ]),
-        'U' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        'V' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [false, true, false],
-        ]),
-        'W' => CharacterPixels::Wide([
-            [true, false, false, false, true],
-            [true, false, false, false, true],
-            [true, false, true, false, true],
-            [true, false, true, false, true],
-            [true, true, false, true, true],
-        ]),
-        'X' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [false, true, false],
-            [true, false, true],
-            [true, false, true],
-        ]),
-        'Y' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [false, true, false],
-            [false, true, false],
-        ]),
-        'Z' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, false, true],
-            [false, true, false],
-            [true, false, false],
-            [true, true, true],
-        ]),
-        '0' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        '1' => CharacterPixels::Standard([
-            [true, true, false],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-            [true, true, true],
-        ]),
-        '2' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, false, true],
-            [false, true, true],
-            [true, false, false],
-            [true, true, true],
-        ]),
-        '3' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, false, true],
-            [true, true, true],
-            [false, false, true],
-            [true, true, true],
-        ]),
-        '4' => CharacterPixels::Standard([
-            [true, false, true],
-            [true, false, true],
-            [true, true, true],
-            [false, false, true],
-            [false, false, true],
-        ]),
-        '5' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, false],
-            [true, true, true],
-            [false, false, true],
-            [true, true, false],
-        ]),
-        '6' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, true, false],
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        '7' => CharacterPixels::Standard([
-            [true, true, true],
-            [false, false, true],
-            [false, true, false],
-            [false, true, false],
-            [false, true, false],
-        ]),
-        '8' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-        ]),
-        '9' => CharacterPixels::Standard([
-            [true, true, true],
-            [true, false, true],
-            [true, true, true],
-            [false, false, true],
-            [false, false, true],
-        ]),
-        _ => CharacterPixels::Standard([
-            [true, false, true],
-            [false, true, false],
-            [true, false, true],
-            [false, true, false],
-            [true, false, true],
-        ]),
+const fn andeq_displaypixels(dest: &mut DisplayPixels, src: &DisplayPixels) {
+    let mut i: usize = 0;
+    while i < dest.len() {
+        dest[i] |= src[i];
+        i += 1;
     }
 }
-
-type DisplayLine = u128;
-type DisplayPixels = [DisplayLine; 64];
 
 struct Position {
     x: u8,
     y: u8,
-}
-
-trait Displayable {
-    fn into_displaypixels(self) -> DisplayPixels;
 }
 
 struct StaticText {
@@ -404,23 +162,11 @@ impl StaticText {
 impl const Displayable for StaticText {
     fn into_displaypixels(self) -> DisplayPixels {
         let mut output: DisplayPixels = [0u128; 64];
-        let starting_column: u8 = self.position.x;
-        let starting_row: u8 = self.position.y;
-        let mut current_column: u8 = starting_column;
         let mut i: usize = 0;
         while i < self.len() {
-            // character by character
-            let mut x: usize = 0;
-            let current_character_pixels = char_to_pixels(self.text.chars().nth(i).unwrap());
-            while x < output.len() {
-                // row by row
-
-                x += 1;
-            }
-
+            andeq_displaypixels(&mut output, &DisplayCharacter::new_from_ascii(self.text.chars().nth(i).unwrap() as u8).into_displaypixels());
             i += 1;
         }
-
         output
     }
 }
@@ -456,5 +202,6 @@ pub enum DataField {
 }
 
 fn main() {
-    println!("Hello, world!");
+    let i = DisplayCharacter::new_from_ascii(b'A');
+    dbg!(i);
 }
