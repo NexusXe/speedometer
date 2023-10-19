@@ -1,5 +1,6 @@
 #![feature(inherent_associated_types)]
 #![allow(incomplete_features)]
+#![allow(dead_code)]
 #![feature(const_trait_impl)]
 #![feature(ascii_char)]
 #![feature(const_mut_refs)]
@@ -232,7 +233,6 @@ pub enum DataField {
 }
 
 
-#[macro_use]
 macro_rules! pixelate_character {
     ($character:literal) => {
         DisplayCharacter::into_displaypixels(DisplayCharacter::new_from_ascii($character))
