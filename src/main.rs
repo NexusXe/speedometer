@@ -239,11 +239,24 @@ macro_rules! pixelate_character {
     };
 }
 
-const A_DISPLAY: DisplayPixels = pixelate_character!(b'a');
-const B_DISPLAY: DisplayPixels = pixelate_character!(b'b');
+const LETTER_PIXELS: [DisplayPixels; 26] = {
+    let mut output: [DisplayPixels; 26] = [[0u128; 64]; 26];
+    let mut i: u8 = b'a';
+    let end: u8 = b'z' + 1;
+
+    while i < end {
+        output[(i - b'a') as usize] = DisplayCharacter::into_displaypixels(DisplayCharacter::new_from_ascii(i));
+        i += 1;
+    }
+
+
+    output
+};
 
 pub fn main() {
-    for x in A_DISPLAY {
-        println!("{:#0128b}", x);
+    for i in LETTER_PIXELS {
+        for x in i {
+            println!("{:#0128b}", x);
+        }
     }
 }
