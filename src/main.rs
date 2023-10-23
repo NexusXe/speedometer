@@ -10,7 +10,6 @@ type StandardCharacter = u16; // 5 x 3, with sign bit as visibility
 type WideCharacter = u32; // 5 x 5, with sign bit as visibility and 6 trailing unused 0s
 type SmallCharacter = u8; // 4x2
 
-
 type DisplayLine = u128;
 type DisplayPixels = [DisplayLine; 64];
 
@@ -155,7 +154,9 @@ impl DisplayCharacter {
             Self::Standard(data) => {
                 const CHAR_PIXEL_MASK: u16 = 0x7000; // 0b01110000
                 while i < CHAR_LENGTH {
-                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * CHAR_WIDTH))) >> ((CHAR_LENGTH - (i + 1)) * CHAR_WIDTH) as u16) as u128;// what the fuck?
+                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * CHAR_WIDTH)))
+                        >> ((CHAR_LENGTH - (i + 1)) * CHAR_WIDTH) as u16)
+                        as u128; // what the fuck?
                     output[i] |= x;
                     i += 1;
                 }
@@ -164,7 +165,9 @@ impl DisplayCharacter {
             Self::Wide(data) => {
                 const CHAR_PIXEL_MASK: u32 = 0x7C000000;
                 while i < WIDECHAR_LENGTH {
-                    let x = ((data & (CHAR_PIXEL_MASK >> (i * WIDECHAR_WIDTH))) >> (((WIDECHAR_LENGTH - (i + 1)) * WIDECHAR_WIDTH) + 6) as u32) as u128;
+                    let x = ((data & (CHAR_PIXEL_MASK >> (i * WIDECHAR_WIDTH)))
+                        >> (((WIDECHAR_LENGTH - (i + 1)) * WIDECHAR_WIDTH) + 6) as u32)
+                        as u128;
                     output[i] |= x;
                     i += 1;
                 }
@@ -173,7 +176,9 @@ impl DisplayCharacter {
             Self::Small(data) => {
                 const CHAR_PIXEL_MASK: u8 = 0xF;
                 while i < SMALLCHAR_LENGTH {
-                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * SMALLCHAR_WIDTH))) >> ((SMALLCHAR_LENGTH - (i + 1)) * SMALLCHAR_WIDTH) as u8) as u128;
+                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * SMALLCHAR_WIDTH)))
+                        >> ((SMALLCHAR_LENGTH - (i + 1)) * SMALLCHAR_WIDTH) as u8)
+                        as u128;
                     output[i] |= x;
                     i += 1;
                 }
@@ -253,7 +258,6 @@ pub enum DataField {
     Gear(GearPosition),
 }
 
-
 macro_rules! pixelate_character {
     ($character:literal) => {
         DisplayCharacter::into_displaypixels(DisplayCharacter::new_from_ascii($character))
@@ -266,10 +270,10 @@ const LETTER_PIXELS: [DisplayPixels; 26] = {
     let end: u8 = b'z' + 1;
 
     while i < end {
-        output[(i - b'a') as usize] = DisplayCharacter::into_displaypixels(DisplayCharacter::new_from_ascii(i));
+        output[(i - b'a') as usize] =
+            DisplayCharacter::into_displaypixels(DisplayCharacter::new_from_ascii(i));
         i += 1;
     }
-
 
     output
 };
@@ -301,8 +305,6 @@ const fn pixelate_text(text: &[u8]) -> DisplayPixels {
         }
 
         right_cursor = usize::checked_sub(right_cursor, letter_width + 1).unwrap();
-        
-        
     }
 
     output
@@ -311,7 +313,10 @@ const fn pixelate_text(text: &[u8]) -> DisplayPixels {
 pub fn main() {
     for i in LETTER_PIXELS {
         for x in i {
-            let bytestring = format!("{:#0128b}", x).replace("0", " ").replace("1", "█").replace("b", "");
+            let bytestring = format!("{:#0128b}", x)
+                .replace("0", " ")
+                .replace("1", "█")
+                .replace("b", "");
 
             println!("{}", bytestring);
         }
@@ -319,15 +324,39 @@ pub fn main() {
     let text: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
     let specials: &[u8] = b"0123456789!@#$%^&*()_+-";
     for x in 0..6 {
-        println!("{}", format!("{:#0128b}", pixelate_text(text)[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+        println!(
+            "{}",
+            format!("{:#0128b}", pixelate_text(text)[x])
+                .replace("0", " ")
+                .replace("1", "█")
+                .replace("b", "")
+        );
     }
     for x in 0..6 {
-        println!("{}", format!("{:#0128b}", pixelate_text(specials)[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+        println!(
+            "{}",
+            format!("{:#0128b}", pixelate_text(specials)[x])
+                .replace("0", " ")
+                .replace("1", "█")
+                .replace("b", "")
+        );
     }
     for x in 0..6 {
-        println!("{}", format!("{:#0128b}", pixelate_text(b"DONT GET MY WORDS TWISTED")[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+        println!(
+            "{}",
+            format!("{:#0128b}", pixelate_text(b"DONT GET MY WORDS TWISTED")[x])
+                .replace("0", " ")
+                .replace("1", "█")
+                .replace("b", "")
+        );
     }
     for x in 0..6 {
-        println!("{}", format!("{:#0128b}", pixelate_text(b"CALL THAT SHIT TORSION")[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+        println!(
+            "{}",
+            format!("{:#0128b}", pixelate_text(b"CALL THAT SHIT TORSION")[x])
+                .replace("0", " ")
+                .replace("1", "█")
+                .replace("b", "")
+        );
     }
 }
