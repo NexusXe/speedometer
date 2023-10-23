@@ -4,6 +4,7 @@
 #![feature(const_trait_impl)]
 #![feature(ascii_char)]
 #![feature(const_mut_refs)]
+#![feature(const_option)]
 
 type StandardCharacter = u16; // 5 x 3, with sign bit as visibility
 type WideCharacter = u32; // 5 x 5, with sign bit as visibility and 6 trailing unused 0s
@@ -28,12 +29,21 @@ const SMALLCHAR_WIDTH: usize = 2;
 const SPACE_PIXELS: StandardCharacter = 0b1000000000000000u16;
 const EXCL_PIXELS: StandardCharacter = 0b1010010010000010u16;
 const QUOTE_PIXELS: StandardCharacter = 0b1101101000000000u16;
-const HASH_PIXELS: StandardCharacter = 0b1101111101111101u16;
+const HASH_PIXELS: WideCharacter = 0b10101011111010101111101010000000u32;
 const DOLLAR_PIXELS: WideCharacter = 0b10111010100011100010101110000000u32;
+
+const AT_PIXELS: WideCharacter = 0b11111110001101111011011111000000u32;
+const PERCENT_PIXELS: StandardCharacter = 0b1101001010100101u16;
+const CARET_PIXELS: StandardCharacter = 0b1010101101000000u16;
+const AMPERSAND_PIXELS: WideCharacter = 0b10110010000011011001001101000000u32;
+const ASTERISK_PIXELS: StandardCharacter = 0b1101010101000000u16;
+const LEFT_PAREN_PIXELS: StandardCharacter = 0b1001010010010001u16;
+const RIGHT_PAREN_PIXELS: StandardCharacter = 0b1100010010010100u16;
+const MINUS_PIXELS: StandardCharacter = 0b1000000111000000u16;
 // TODO: finish ASCII
 const A_PIXELS: StandardCharacter = 0b1111101111101101u16;
 const B_PIXELS: StandardCharacter = 0b1110101110101110u16;
-const C_PIXELS: StandardCharacter = 0b1111110110110111u16;
+const C_PIXELS: StandardCharacter = 0b1111100100100111u16;
 const D_PIXELS: StandardCharacter = 0b1110101101101110u16;
 const E_PIXELS: StandardCharacter = 0b1111100111100111u16;
 const F_PIXELS: StandardCharacter = 0b1111100111100100u16;
@@ -42,7 +52,7 @@ const H_PIXELS: StandardCharacter = 0b1101101111101101u16;
 const I_PIXELS: StandardCharacter = 0b1111010010010111u16;
 const J_PIXELS: StandardCharacter = 0b1111010010010110u16;
 const K_PIXELS: StandardCharacter = 0b1101101110101101u16;
-const L_PIXELS: StandardCharacter = 0b1101101101101111u16;
+const L_PIXELS: StandardCharacter = 0b1100100100100111u16;
 const M_PIXELS: WideCharacter = 0b11101110101101011000110001000000u32;
 const N_PIXELS: StandardCharacter = 0b1110101101101101u16;
 const O_PIXELS: StandardCharacter = 0b1111101101101111u16;
@@ -63,7 +73,7 @@ const TWO_PIXELS: StandardCharacter = 0b1111001011100111u16;
 const THREE_PIXELS: StandardCharacter = 0b1111001111001111u16;
 const FOUR_PIXELS: StandardCharacter = 0b1101101111001001u16;
 const FIVE_PIXELS: StandardCharacter = 0b1111100111001110u16;
-const SIX_PIXELS: StandardCharacter = 0b1111110111101111u16;
+const SIX_PIXELS: StandardCharacter = 0b1111100111101111u16;
 const SEVEN_PIXELS: StandardCharacter = 0b1111001010010010u16;
 const EIGHT_PIXELS: StandardCharacter = 0b1111101111101111u16;
 const NINE_PIXELS: StandardCharacter = 0b1111101111001001u16;
@@ -120,6 +130,17 @@ impl DisplayCharacter {
             b'/' => return Self::Standard(SLASH_PIXELS),
             b'.' => return Self::Small(DOT_PIXELS),
             b',' => return Self::Small(COMMA_PIXELS),
+            b' ' => return Self::Standard(SPACE_PIXELS),
+            b'!' => return Self::Standard(EXCL_PIXELS),
+            b'@' => return Self::Wide(AT_PIXELS),
+            b'#' => return Self::Wide(HASH_PIXELS),
+            b'%' => return Self::Standard(PERCENT_PIXELS),
+            b'^' => return Self::Standard(CARET_PIXELS),
+            b'&' => return Self::Wide(AMPERSAND_PIXELS),
+            b'*' => return Self::Standard(ASTERISK_PIXELS),
+            b')' => return Self::Standard(LEFT_PAREN_PIXELS),
+            b'(' => return Self::Standard(RIGHT_PAREN_PIXELS),
+            b'-' => return Self::Standard(MINUS_PIXELS),
             _ => return Self::Standard(UNKNOWN_PIXELS),
         };
     }
@@ -253,10 +274,60 @@ const LETTER_PIXELS: [DisplayPixels; 26] = {
     output
 };
 
+const fn pixelate_text(text: &[u8]) -> DisplayPixels {
+    let mut output: DisplayPixels = [0u128; 64];
+    let mut i: usize = text.len();
+
+    let mut right_cursor: usize = 127;
+
+    while i > 0 {
+        i -= 1;
+        let letter: u8 = text[i];
+        let this_letter = DisplayCharacter::new_from_ascii(letter);
+        let (letter_length, letter_width) = match this_letter {
+            DisplayCharacter::Small(_) => (SMALLCHAR_LENGTH, SMALLCHAR_WIDTH),
+            DisplayCharacter::Standard(_) => (CHAR_LENGTH, CHAR_WIDTH),
+            DisplayCharacter::Wide(_) => (WIDECHAR_LENGTH, WIDECHAR_WIDTH),
+        };
+
+        let left_shift: usize = 127 - right_cursor;
+        let mut x: usize = 0;
+
+        let letter_pixels = this_letter.into_displaypixels();
+
+        while x < letter_length {
+            output[x] |= letter_pixels[x] << left_shift;
+            x += 1;
+        }
+
+        right_cursor = usize::checked_sub(right_cursor, letter_width + 1).unwrap();
+        
+        
+    }
+
+    output
+}
+
 pub fn main() {
     for i in LETTER_PIXELS {
         for x in i {
-            println!("{:#0128b}", x);
+            let bytestring = format!("{:#0128b}", x).replace("0", " ").replace("1", "█").replace("b", "");
+
+            println!("{}", bytestring);
         }
+    }
+    let text: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
+    let specials: &[u8] = b"0123456789!@#$%^&*()_+-";
+    for x in 0..6 {
+        println!("{}", format!("{:#0128b}", pixelate_text(text)[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+    }
+    for x in 0..6 {
+        println!("{}", format!("{:#0128b}", pixelate_text(specials)[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+    }
+    for x in 0..6 {
+        println!("{}", format!("{:#0128b}", pixelate_text(b"DONT GET MY WORDS TWISTED")[x]).replace("0", " ").replace("1", "█").replace("b", ""));
+    }
+    for x in 0..6 {
+        println!("{}", format!("{:#0128b}", pixelate_text(b"CALL THAT SHIT TORSION")[x]).replace("0", " ").replace("1", "█").replace("b", ""));
     }
 }
