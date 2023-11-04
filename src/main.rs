@@ -393,3 +393,87 @@ pub fn main() {
         );
     }
 }
+
+#![feature(portable_simd)]
+
+use std::simd::prelude::*;
+
+pub struct DisplayArr {
+    left: u64x64,
+    right: u64x64,
+}
+
+impl DisplayArr {
+    // fn splat(left: u64, right: u64) -> Self {
+    //     DisplayArr {
+    //         left: u64x64::splat(left),
+    //         right: u64x64::splat(right),
+    //     }
+    // }
+    const fn constsplat(left: u64, right: u64) -> Self {
+        DisplayArr {
+            left: u64x64::from_array([left; 64]),
+            right: u64x64::from_array([right; 64]),
+        }
+    }
+    pub const fn new() -> Self {
+        Self::constsplat(0, 0)
+    }
+
+    pub const fn new_full() -> Self {
+        Self::constsplat(1, 1)
+    }
+
+    pub fn new_from_halves(left: u64x64, right: u64x64) -> Self {
+        Self {
+            left: left,
+            right: right
+        }
+    }
+
+    pub fn row(&self, idx: usize) -> u128 {
+        let index: usize = if idx > 63 {63} else {idx};
+
+        let left: u128 = self.left[index] as u128;
+        let right: u128 = self.right[index] as u128;
+        (left << 64) | right
+    }
+
+    #[inline(never)]
+    pub fn column(&self, idx: usize) -> u64 { // TODO: can probably get this from a shifted mask?
+        let index = if idx > 127 {127} else {idx};
+
+
+        const fn get_bit(number: u64, position: usize) -> u64 {
+            let pos: usize = if position > 63 {63} else {position};
+            let mask = 1u64 << pos;
+            let output = (number & mask) >> pos;
+            if !((output == 0) || (output == 1)) {
+                unsafe{std::hint::unreachable_unchecked();}
+                //unreachable!(); //382
+                //382
+            }
+            output
+        }
+
+        match index {
+            0..=63 => {
+                let mut output: u64 = 0;
+                for i in 0..64 {
+                    output |= get_bit(self.left[i], index) << i;
+                }
+                output
+            },
+
+            64..=127 => {
+                let mut output: u64 = 0;
+                for i in 0..64 {
+                    output |= get_bit(self.right[i], index - 64) << i;
+                }
+                output
+            },
+
+            _ => unreachable!(),
+        }
+    }
+}
