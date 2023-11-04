@@ -5,6 +5,8 @@
 #![feature(ascii_char)]
 #![feature(const_mut_refs)]
 #![feature(const_option)]
+#![allow(internal_features)]
+#![feature(rustc_attrs)]
 
 type StandardCharacter = u16; // 5 x 3, with sign bit as visibility
 type WideCharacter = u32; // 5 x 5, with sign bit as visibility and 6 trailing unused 0s
@@ -18,8 +20,8 @@ trait Displayable {
     fn into_displaypixels(self) -> DisplayPixels;
 }
 
-const CHAR_LENGTH: usize = 5;
-const CHAR_WIDTH: usize = 3;
+const STDCHAR_LENGTH: usize = 5;
+const STDCHAR_WIDTH: usize = 3;
 const WIDECHAR_LENGTH: usize = 5;
 const WIDECHAR_WIDTH: usize = 5;
 const SMALLCHAR_LENGTH: usize = 3;
@@ -150,38 +152,56 @@ impl DisplayCharacter {
         let mut output: DisplayPixels = [0u128; 64];
         let mut i: usize = 0;
 
+        macro_rules! handle_pixel_arm {
+            ($type: ty, $pixel_mask: literal, $length: expr, $width: expr, $i: expr, $data: expr, $output: expr, $offset: literal) => {
+                while $i < $length {
+                    let x: u128 = (($data & ($pixel_mask >> ($i * $width)))
+                        >> ((($length - ($i + 1)) * $width) + $offset) as $type)
+                        as u128;
+                    $output[$i] |= x;
+                    $i += 1;
+                }
+            };
+        }
+
         match self {
             Self::Standard(data) => {
-                const CHAR_PIXEL_MASK: u16 = 0x7000; // 0b01110000
-                while i < CHAR_LENGTH {
-                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * CHAR_WIDTH)))
-                        >> ((CHAR_LENGTH - (i + 1)) * CHAR_WIDTH) as u16)
-                        as u128; // what the fuck?
-                    output[i] |= x;
-                    i += 1;
-                }
+                handle_pixel_arm!(
+                    u16,
+                    0x7000u16,
+                    STDCHAR_LENGTH,
+                    STDCHAR_WIDTH,
+                    i,
+                    data,
+                    output,
+                    0
+                );
             }
 
             Self::Wide(data) => {
-                const CHAR_PIXEL_MASK: u32 = 0x7C000000;
-                while i < WIDECHAR_LENGTH {
-                    let x = ((data & (CHAR_PIXEL_MASK >> (i * WIDECHAR_WIDTH)))
-                        >> (((WIDECHAR_LENGTH - (i + 1)) * WIDECHAR_WIDTH) + 6) as u32)
-                        as u128;
-                    output[i] |= x;
-                    i += 1;
-                }
+                handle_pixel_arm!(
+                    u32,
+                    0x7C000000u32,
+                    WIDECHAR_LENGTH,
+                    WIDECHAR_WIDTH,
+                    i,
+                    data,
+                    output,
+                    6
+                );
             }
 
             Self::Small(data) => {
-                const CHAR_PIXEL_MASK: u8 = 0xF;
-                while i < SMALLCHAR_LENGTH {
-                    let x: u128 = ((data & (CHAR_PIXEL_MASK >> (i * SMALLCHAR_WIDTH)))
-                        >> ((SMALLCHAR_LENGTH - (i + 1)) * SMALLCHAR_WIDTH) as u8)
-                        as u128;
-                    output[i] |= x;
-                    i += 1;
-                }
+                handle_pixel_arm!(
+                    u8,
+                    0xFu8,
+                    SMALLCHAR_LENGTH,
+                    SMALLCHAR_WIDTH,
+                    i,
+                    data,
+                    output,
+                    0
+                );
             }
         };
         output
@@ -290,7 +310,7 @@ const fn pixelate_text(text: &[u8]) -> DisplayPixels {
         let this_letter = DisplayCharacter::new_from_ascii(letter);
         let (letter_length, letter_width) = match this_letter {
             DisplayCharacter::Small(_) => (SMALLCHAR_LENGTH, SMALLCHAR_WIDTH),
-            DisplayCharacter::Standard(_) => (CHAR_LENGTH, CHAR_WIDTH),
+            DisplayCharacter::Standard(_) => (STDCHAR_LENGTH, STDCHAR_WIDTH),
             DisplayCharacter::Wide(_) => (WIDECHAR_LENGTH, WIDECHAR_WIDTH),
         };
 
@@ -310,13 +330,44 @@ const fn pixelate_text(text: &[u8]) -> DisplayPixels {
     output
 }
 
+#[rustc_do_not_const_check]
+/// Moves text vertically
+pub const fn rotate_array<T, const S: usize>(array: [T; S], k: isize) -> [T; S] {
+    let len = array.len();
+    let k = k.rem_euclid(len as isize) as usize;
+    let mut output = array;
+    // Reverse the first k elements.
+    output[0..k].reverse();
+    // Reverse the remaining elements.
+    output[k..].reverse();
+    // Reverse the entire array.
+    output[0..len].reverse();
+    output
+}
+
+/// Moves text left
+pub const fn shift_pixels(array: [u128; 64], shift: usize) -> [u128; 64] {
+    let mut output = array;
+    let mut i: usize = 0;
+    while i < output.len() {
+        output[i] = output[i] << shift;
+        i += 1;
+    }
+
+    output
+}
+
 pub fn main() {
+    fn format_pixel_text(bytestring: u128) -> String {
+        format!("{:#0128b}", bytestring)
+            .replace("0", " ")
+            .replace("1", "█")
+            .replace("b", "")
+    }
+
     for i in LETTER_PIXELS {
         for x in i {
-            let bytestring = format!("{:#0128b}", x)
-                .replace("0", " ")
-                .replace("1", "█")
-                .replace("b", "");
+            let bytestring = format_pixel_text(x);
 
             println!("{}", bytestring);
         }
@@ -324,39 +375,21 @@ pub fn main() {
     let text: &[u8] = b"abcdefghijklmnopqrstuvwxyz";
     let specials: &[u8] = b"0123456789!@#$%^&*()_+-";
     for x in 0..6 {
+        println!("{}", format_pixel_text(pixelate_text(text)[x]));
+    }
+    for x in 0..6 {
+        println!("{}", format_pixel_text(pixelate_text(specials)[x]));
+    }
+    for x in 0..6 {
         println!(
             "{}",
-            format!("{:#0128b}", pixelate_text(text)[x])
-                .replace("0", " ")
-                .replace("1", "█")
-                .replace("b", "")
+            format_pixel_text(pixelate_text(b"DONT GET MY WORDS TWISTED")[x])
         );
     }
     for x in 0..6 {
         println!(
             "{}",
-            format!("{:#0128b}", pixelate_text(specials)[x])
-                .replace("0", " ")
-                .replace("1", "█")
-                .replace("b", "")
-        );
-    }
-    for x in 0..6 {
-        println!(
-            "{}",
-            format!("{:#0128b}", pixelate_text(b"DONT GET MY WORDS TWISTED")[x])
-                .replace("0", " ")
-                .replace("1", "█")
-                .replace("b", "")
-        );
-    }
-    for x in 0..6 {
-        println!(
-            "{}",
-            format!("{:#0128b}", pixelate_text(b"CALL THAT SHIT TORSION")[x])
-                .replace("0", " ")
-                .replace("1", "█")
-                .replace("b", "")
+            format_pixel_text(pixelate_text(b"CALL THAT SHIT TORSION")[x])
         );
     }
 }
