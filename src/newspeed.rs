@@ -504,7 +504,7 @@ mod tests {
     #[test]
     fn displayarr_row_ops() {
         const EXPECTED_VAL: u128 = 128 << 64;
-        let mut test = DisplayArr::splat(128u64, 0u64);
+        let test = DisplayArr::splat(128u64, 0u64);
         for x in 0..128 {
             for i in 0..64 {
                 assert_eq!(test.row(i).unwrap() << x, EXPECTED_VAL << x, "err row {:} shift {:} op {}", i, x, "<<");
