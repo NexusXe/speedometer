@@ -20,35 +20,35 @@ pub enum DisplayArrErr {
     InvalidColumnError(DisplayArrIndexError),
 }
 
-
 impl DisplayArrErr {
-    
-    
     const fn idx_error<const T: bool>(expected: usize, actual: usize) -> Self {
         if actual <= expected {
             panic!("threw an error where the actual index was <= expected maximum!");
         } else {
             match T {
-                true => Self::InvalidRowError(DisplayArrIndexError{expected, actual}),
-                false => Self::InvalidColumnError(DisplayArrIndexError{expected, actual})
+                true => Self::InvalidRowError(DisplayArrIndexError { expected, actual }),
+                false => Self::InvalidColumnError(DisplayArrIndexError { expected, actual }),
             }
         }
     }
 
     #[allow(non_upper_case_globals)]
-    const row_err: fn(usize, usize) -> Self = |expected, actual| Self::idx_error::<true>(expected, actual);
+    const row_err: fn(usize, usize) -> Self =
+        |expected, actual| Self::idx_error::<true>(expected, actual);
     #[allow(non_upper_case_globals)]
-    const column_err: fn(usize, usize) -> Self = |expected, actual| Self::idx_error::<false>(expected, actual);
-    
+    const column_err: fn(usize, usize) -> Self =
+        |expected, actual| Self::idx_error::<false>(expected, actual);
 }
-
-
 
 impl core::fmt::Display for DisplayArrErr {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let (expected, actual, text) = match self {
-            DisplayArrErr::InvalidRowError(DisplayArrIndexError{expected, actual}) => (expected, actual, "row"),
-            DisplayArrErr::InvalidColumnError(DisplayArrIndexError{expected, actual}) => (expected, actual, "column"),
+            DisplayArrErr::InvalidRowError(DisplayArrIndexError { expected, actual }) => {
+                (expected, actual, "row")
+            }
+            DisplayArrErr::InvalidColumnError(DisplayArrIndexError { expected, actual }) => {
+                (expected, actual, "column")
+            }
         };
         write!(
             f,
@@ -64,13 +64,28 @@ impl core::fmt::Debug for DisplayArrErr {
     }
 }
 
-#[derive(PartialEq)]
+
+#[derive(Clone, Copy)]
 pub struct DisplayArr {
     left: u64x64,
     right: u64x64,
 }
 
+impl PartialEq for DisplayArr {
+    fn eq(&self, other: &Self) -> bool {
+        (self.left == other.left) && (self.right == other.right)
+    }
+}
+
+impl Eq for DisplayArr {}
+
 impl DisplayArr {
+    pub const LEN: usize = 64;
+
+    pub const fn len() -> usize {
+        Self::LEN
+    }
+
     /// Splits a [u128] into `(u64, u64)`, where `0` is the upper 64 bits and `1` is the lower 64 bits.
     /// So, a u128 of `0x0123456789abcdef` will be split into `(0x01234567, 0x89abcdef)`.
     /// Inverse of [combine_u128].
@@ -90,7 +105,10 @@ impl DisplayArr {
     /// Gets bit `idx` from `self`, where 0 is the highest (leftmost) bit. Returns [DisplayArrErr::InvalidColumnError] if idx is out of bounds.
     const fn get_bit(number: u64, position: usize) -> Result<u64, DisplayArrErr> {
         if position > 63 {
-            return Err(DisplayArrErr::InvalidColumnError(DisplayArrIndexError{expected: 63, actual: position}));
+            return Err(DisplayArrErr::InvalidColumnError(DisplayArrIndexError {
+                expected: 63,
+                actual: position,
+            }));
         }
         let mask = 1u64 << position;
         let output = (number & mask) >> position;
@@ -258,6 +276,114 @@ impl DisplayArr {
     }
 }
 
+impl core::ops::BitAnd for DisplayArr {
+    type Output = Self;
+    fn bitand(self, rhs: Self) -> Self::Output {
+        Self {
+            left: self.left & rhs.left,
+            right: self.right & rhs.right,
+        }
+    }
+}
+
+impl core::ops::BitAndAssign for DisplayArr {
+    fn bitand_assign(&mut self, rhs: Self) {
+        self.left &= rhs.left;
+        self.right &= rhs.right;
+    }
+}
+
+impl core::ops::BitOr for DisplayArr {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self::Output {
+        Self {
+            left: self.left | rhs.left,
+            right: self.right | rhs.right,
+        }
+    }
+}
+
+impl core::ops::BitOrAssign for DisplayArr {
+    fn bitor_assign(&mut self, rhs: Self) {
+        self.left |= rhs.left;
+        self.right |= rhs.right;
+    }
+}
+
+impl core::ops::BitXor for DisplayArr {
+    type Output = Self;
+    fn bitxor(self, rhs: Self) -> Self::Output {
+        Self {
+            left: self.left ^ rhs.left,
+            right: self.right ^ rhs.right,
+        }
+    }
+}
+
+impl core::ops::BitXorAssign for DisplayArr {
+    fn bitxor_assign(&mut self, rhs: Self) {
+        self.left ^= rhs.left;
+        self.right ^= rhs.right;
+    }
+}
+
+impl core::ops::Shl<usize> for DisplayArr {
+    type Output = Self;
+
+    fn shl(self, rhs: usize) -> Self::Output {
+        let mut output = Self::new();
+        for line in 0..Self::LEN {
+            let _ = output.set_row(line, unsafe { self.row(line).unwrap_unchecked() } << rhs);
+        }
+        output
+    }
+}
+
+impl core::ops::ShlAssign<usize> for DisplayArr {
+    fn shl_assign(&mut self, rhs: usize) {
+        for line in 0..Self::LEN {
+            let _ = self.set_row(line, unsafe { self.row(line).unwrap_unchecked() } << rhs);
+        }
+    }
+}
+
+impl core::ops::Shr<usize> for DisplayArr {
+    type Output = Self;
+
+    fn shr(self, rhs: usize) -> Self::Output {
+        let mut output = Self::new();
+        for line in 0..Self::LEN {
+            let _ = output.set_row(line, unsafe { self.row(line).unwrap_unchecked() } >> rhs);
+        }
+        output
+    }
+}
+
+impl core::ops::ShrAssign<usize> for DisplayArr {
+    fn shr_assign(&mut self, rhs: usize) {
+        for line in 0..Self::LEN {
+            let _ = self.set_row(line, unsafe { self.row(line).unwrap_unchecked() } >> rhs);
+        }
+    }
+}
+
+impl core::ops::Not for DisplayArr {
+    type Output = Self;
+    fn not(self) -> Self::Output {
+        Self {
+            left: !self.left,
+            right: !self.right,
+        }
+    }
+}
+
+impl core::ops::Neg for DisplayArr {
+    type Output = Self;
+    fn neg(self) -> Self::Output {
+        !self
+    }
+}
+
 impl core::fmt::Display for DisplayArr {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         use core::iter::zip;
@@ -349,12 +475,20 @@ mod tests {
     }
 
     #[test]
-    fn displayarr_rows() {
+    fn displayarr_row_column_idents() {
         for i in 0usize..=63usize {
             assert_eq!(FULL_DISPLAYARR.row(i).unwrap(), u128::MAX);
             assert_eq!(EMPTY_DISPLAYARR.row(i).unwrap(), 0u128);
         }
-        
+        //dbg!(DisplayArr::split_u128(1u128));
+        // for x in 0usize..128 {
+        //     let (left, right) = DisplayArr::split_u128(1u128 << x);
+        //     let arr = DisplayArr::splat(left, right);
+        //     for i in 0usize..64 {
+        //         assert_eq!(arr.row(i).unwrap(), 1u128 << x);
+        //     }
+        // }
+
         assert!(FULL_DISPLAYARR.row(64).is_err());
         assert!(EMPTY_DISPLAYARR.row(64).is_err());
         for i in 0usize..=127usize {
@@ -364,7 +498,37 @@ mod tests {
 
         assert!(FULL_DISPLAYARR.column(128).is_err());
         assert!(EMPTY_DISPLAYARR.column(128).is_err());
-        
+    }
+
+    #[test]
+    fn displayarr_row_ops() {
+        const EXPECTED_VAL: u128 = 128 << 64;
+        let mut test = DisplayArr::splat(128u64, 0u64);
+        for x in 0..128 {
+            for i in 0..64 {
+                assert_eq!(test.row(i).unwrap() << x, EXPECTED_VAL << x, "err row {:} shift {:} op {}", i, x, "<<");
+            }
+        }
+
+        for x in 0..128 {
+            for i in 0..64 {
+                assert_eq!(test.row(i).unwrap() >> x, EXPECTED_VAL >> x, "err row {:} shift {:} op {}", i, x, ">>");
+            }
+        }
+
+        // for x in 0..128 {
+        //     for i in 0..64 {
+        //         assert_eq!((test << x).row(i).unwrap(), EXPECTED_VAL << x, "err row {:} shift {:} op {}", i, x, "<< arr");
+        //     }
+        // }
+
+        // for x in 0..128 {
+        //     for i in 0..64 {
+        //         assert_eq!((test >> x).row(i).unwrap(), EXPECTED_VAL >> x, "err row {:} shift {:} op {}", i, x, ">> arr");
+        //     }
+        // }
+
+        assert_eq!(test ^ test, DisplayArr::new());
+        assert_ne!(test  ^ test, test);
     }
 }
-
