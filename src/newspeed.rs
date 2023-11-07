@@ -21,9 +21,11 @@ pub enum DisplayArrErr {
 }
 
 impl DisplayArrErr {
+    /// Macro function for types of [DisplayArrErr] helpers
+    /// Used in [Self::row_err] and [Self::column_err]
     const fn idx_error<const T: bool>(expected: usize, actual: usize) -> Self {
         if actual <= expected {
-            panic!("threw an error where the actual index was <= expected maximum!");
+            panic!("threw an error where the actual index was <= expected maximum (a valid index was provided)!");
         } else {
             match T {
                 true => Self::InvalidRowError(DisplayArrIndexError { expected, actual }),
@@ -32,9 +34,11 @@ impl DisplayArrErr {
         }
     }
 
+    /// Invalid row index error helper
     #[allow(non_upper_case_globals)]
     const row_err: fn(usize, usize) -> Self =
         |expected, actual| Self::idx_error::<true>(expected, actual);
+    /// Invalid column index error helper
     #[allow(non_upper_case_globals)]
     const column_err: fn(usize, usize) -> Self =
         |expected, actual| Self::idx_error::<false>(expected, actual);
