@@ -64,6 +64,7 @@ impl core::fmt::Debug for DisplayArrErr {
     }
 }
 
+#[derive(PartialEq)]
 pub struct DisplayArr {
     left: u64x64,
     right: u64x64,
@@ -257,24 +258,6 @@ impl DisplayArr {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn u128_ops() {
-        const TEST_U128: u128 = 0x0123456789abcdefu128;
-        const UPPER_U64: u64 = (TEST_U128 << 64) as u64;
-        const LOWER_U64: u64 = TEST_U128 as u64;
-        assert_eq!(
-            (UPPER_U64, LOWER_U64),
-            super::DisplayArr::split_u128(TEST_U128)
-        );
-        assert_eq!(
-            TEST_U128,
-            super::DisplayArr::combine_u128(UPPER_U64, LOWER_U64)
-        );
-    }
-}
-
 impl core::fmt::Display for DisplayArr {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         use core::iter::zip;
@@ -329,7 +312,59 @@ impl core::fmt::Debug for DisplayArr {
     }
 }
 
-// const X: DisplayArr = DisplayArr::new();
-// pub fn main() {
-//     dbg!(X);
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const TEST_U128: u128 = 0x0123456789abcdefu128;
+    const UPPER_U64: u64 = (TEST_U128 << 64) as u64;
+    const LOWER_U64: u64 = TEST_U128 as u64;
+    const EMPTY_DISPLAYARR: DisplayArr = DisplayArr::new();
+    const FULL_DISPLAYARR: DisplayArr = DisplayArr::new_full();
+
+    #[test]
+    fn u128_split() {
+        assert_eq!(
+            (UPPER_U64, LOWER_U64),
+            super::DisplayArr::split_u128(TEST_U128)
+        );
+    }
+
+    #[test]
+    fn u128_combine() {
+        assert_eq!(
+            TEST_U128,
+            super::DisplayArr::combine_u128(UPPER_U64, LOWER_U64)
+        );
+    }
+
+    #[test]
+    fn displayarr_creation() {
+        use core::cell;
+        let empty = cell::LazyCell::new(|| DisplayArr::new());
+        let full = cell::LazyCell::new(|| DisplayArr::new_full());
+        assert_eq!(EMPTY_DISPLAYARR, *empty);
+        assert_eq!(FULL_DISPLAYARR, *full);
+        assert_ne!(FULL_DISPLAYARR, EMPTY_DISPLAYARR);
+        assert_ne!(*empty, *full);
+    }
+
+    #[test]
+    fn displayarr_rows() {
+        for i in 0usize..=63usize {
+            assert_eq!(FULL_DISPLAYARR.row(i).unwrap(), u128::MAX);
+            assert_eq!(EMPTY_DISPLAYARR.row(i).unwrap(), 0u128);
+        }
+        
+        assert!(FULL_DISPLAYARR.row(64).is_err());
+        assert!(EMPTY_DISPLAYARR.row(64).is_err());
+        for i in 0usize..=127usize {
+            assert_eq!(FULL_DISPLAYARR.column(i).unwrap(), u64::MAX);
+            assert_eq!(EMPTY_DISPLAYARR.column(i).unwrap(), 0u64);
+        }
+
+        assert!(FULL_DISPLAYARR.column(128).is_err());
+        assert!(EMPTY_DISPLAYARR.column(128).is_err());
+        
+    }
+}
+
