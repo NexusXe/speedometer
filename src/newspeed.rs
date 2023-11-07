@@ -441,6 +441,7 @@ impl core::fmt::Debug for DisplayArr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test::Bencher;
     const TEST_U128: u128 = 0x0123456789abcdefu128;
     const UPPER_U64: u64 = (TEST_U128 << 64) as u64;
     const LOWER_U64: u64 = TEST_U128 as u64;
@@ -530,5 +531,10 @@ mod tests {
 
         assert_eq!(test ^ test, DisplayArr::new());
         assert_ne!(test  ^ test, test);
+    }
+
+    #[bench]
+    fn bench_cmp_all(b: &mut Bencher) {
+        for _ in 0..3 {b.iter(|| FULL_DISPLAYARR == EMPTY_DISPLAYARR);}
     }
 }

@@ -2,7 +2,10 @@
 #![feature(core_intrinsics)]
 #![feature(const_eval_select)]
 #![feature(lazy_cell)]
-//#![no_std]
+#![feature(test)]
+////#![no_std]
+
+extern crate test;
 
 pub mod newspeed;
 pub mod oldspeed;
